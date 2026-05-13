@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod:*)",
+      "Bash(go test:*)",
+      "Bash(wc:*)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(go get:*)",
+      "Bash(go version:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:saraikin.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(sed:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
