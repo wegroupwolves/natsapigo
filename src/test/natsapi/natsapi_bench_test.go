@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WeGroup/natsapigo/src/natsapi"
+	"github.com/wegroupwolves/natsapigo/src/natsapi"
 )
 
 func BenchmarkRequestReply(b *testing.B) {

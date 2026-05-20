@@ -9,7 +9,7 @@ import (
 
 	natsserver "github.com/nats-io/nats-server/v2/server"
 
-	"github.com/WeGroup/natsapigo/src/natsapi"
+	"github.com/wegroupwolves/natsapigo/src/natsapi"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/WeGroup/natsapigo/src/natsapi"
+	"github.com/wegroupwolves/natsapigo/src/natsapi"
 )
 
 // --- Domain types ---

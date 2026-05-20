@@ -1,4 +1,4 @@
-module github.com/WeGroup/natsapigo
+module github.com/wegroupwolves/natsapigo
 
 go 1.24
 
