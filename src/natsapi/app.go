@@ -194,7 +194,7 @@ func (a *NatsAPI) Startup(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	a.nc = nc
-	slog.Info("Connected to NATS server")
+	slog.Info("Connected to NATS server on " + nc.ConnectedUrl())
 
 	a.registerSchemaHandler()
 
