@@ -25,6 +25,7 @@ type NatsAPI struct {
 	exceptionHandlers []ExceptionHandler
 	onStartup         func() error
 	onShutdown        func() error
+	onClosed          func()
 	docServerAddr string
 	docServer     *http.Server
 	asyncApiSpec    []byte
@@ -73,6 +74,10 @@ func WithOnStartup(f func() error) Option {
 
 func WithOnShutdown(f func() error) Option {
 	return func(a *NatsAPI) { a.onShutdown = f }
+}
+
+func WithOnClosed(f func()) Option {
+	return func(a *NatsAPI) { a.onClosed = f }
 }
 
 // WithAsyncAPIDocServer starts an HTTP server on addr (e.g. ":8090") when the app
@@ -164,6 +169,9 @@ func (a *NatsAPI) Startup(ctx context.Context) error {
 		}),
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			slog.Warn("NATS connection closed")
+			if a.onClosed != nil {
+				a.onClosed()
+			}
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			slog.Warn("NATS reconnected", "url", nc.ConnectedUrl())
@@ -194,7 +202,7 @@ func (a *NatsAPI) Startup(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 	a.nc = nc
-	slog.Info("Connected to NATS server on " + nc.ConnectedUrl())
+	slog.Info("Connected to NATS server on "+nc.ConnectedUrl(), "servers", servers)
 
 	a.registerSchemaHandler()
 
