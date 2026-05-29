@@ -44,10 +44,10 @@ func (m *NatsAPIMock) Request(subject string, result any, rpcErr *JsonRPCError) 
 		resp := m.responses[subject]
 		var reply *JsonRPCReply
 		if resp.Error != nil {
-			reply = NewErrorReply(uuid.NewString(), resp.Error)
+			reply = NewErrorReply(uuid.New(), resp.Error)
 		} else {
 			raw, _ := sonic.Marshal(resp.Result)
-			reply = NewResultReply(uuid.NewString(), raw)
+			reply = NewResultReply(uuid.New(), raw)
 		}
 
 		data, _ := sonic.Marshal(reply)

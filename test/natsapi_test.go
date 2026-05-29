@@ -71,7 +71,7 @@ var _ = Context("NatsAPI", func() {
 	When("Sending a request to a registered handler", func() {
 		It("should get a successful reply", func() {
 			// given
-			app.Request("foo", func(_ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
+			app.Request("foo", func(_ context.Context, _ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
 				return StatusResult{Status: "OK"}, nil
 			})
 			err := app.Startup(context.Background())
@@ -108,7 +108,7 @@ var _ = Context("NatsAPI", func() {
 	When("A handler raises a JsonRPCException", func() {
 		It("should return the error code and message", func() {
 			// given
-			app.Request("error.test", func(_ *natsapi.NatsAPI, _ struct{}) (struct{}, error) {
+			app.Request("error.test", func(_ context.Context, _ *natsapi.NatsAPI, _ struct{}) (struct{}, error) {
 				return struct{}{}, natsapi.NewJsonRPCException("BROKER_EXISTS")
 			})
 			err := app.Startup(context.Background())
@@ -127,7 +127,7 @@ var _ = Context("NatsAPI", func() {
 	When("A handler raises a generic error", func() {
 		It("should return a -40000 error", func() {
 			// given
-			app.Request("error.generic", func(_ *natsapi.NatsAPI, _ struct{}) (struct{}, error) {
+			app.Request("error.generic", func(_ context.Context, _ *natsapi.NatsAPI, _ struct{}) (struct{}, error) {
 				return struct{}{}, fmt.Errorf("something went wrong")
 			})
 			err := app.Startup(context.Background())
@@ -149,7 +149,7 @@ var _ = Context("NatsAPI", func() {
 			cfg := natsapi.DefaultConfig()
 			cfg.Connect.Servers = []string{natsURL}
 			secondApp := natsapi.New("other.service", natsapi.WithConfig(cfg))
-			secondApp.Request("baz", func(_ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
+			secondApp.Request("baz", func(_ context.Context, _ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
 				return StatusResult{Status: "OK"}, nil
 			})
 			err := secondApp.Startup(context.Background())
@@ -196,7 +196,7 @@ var _ = Context("NatsAPI", func() {
 	When("Sending a request with typed params to the handler", func() {
 		It("should receive and decode the params correctly", func() {
 			// given
-			app.Request("persons.greet", func(_ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
+			app.Request("persons.greet", func(_ context.Context, _ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
 				return GreetResult{Message: fmt.Sprintf("Hello %s %s", p.FirstName, p.LastName)}, nil
 			})
 			err := app.Startup(context.Background())
@@ -220,7 +220,7 @@ var _ = Context("NatsAPI", func() {
 	When("Concurrent requests hit the same handler", func() {
 		It("should handle all requests without data races", func() {
 			// given
-			app.Request("concurrent.test", func(_ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
+			app.Request("concurrent.test", func(_ context.Context, _ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
 				return GreetResult{Message: fmt.Sprintf("Hello %s", p.FirstName)}, nil
 			})
 			err := app.Startup(context.Background())

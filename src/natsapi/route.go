@@ -1,28 +1,29 @@
 package natsapi
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 )
 
 // HandlerFunc is the internal low-level handler type used by Route.
-type HandlerFunc func(app *NatsAPI, params json.RawMessage) (json.RawMessage, error)
+type HandlerFunc func(ctx context.Context, app *NatsAPI, params json.RawMessage) (json.RawMessage, error)
 
 // PublishHandlerFunc is the internal low-level publish handler type used by PublishRoute.
-type PublishHandlerFunc func(app *NatsAPI, params json.RawMessage) error
+type PublishHandlerFunc func(ctx context.Context, app *NatsAPI, params json.RawMessage) error
 
 // Handler is the typed handler signature for request/reply handlers.
 // Use this to define handlers with typed params and results:
 //
 //	func HandleHealth() natsapi.Handler[struct{}, StatusResult] {
-//	    return func(_ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
+//	    return func(ctx context.Context, _ *natsapi.NatsAPI, _ struct{}) (StatusResult, error) {
 //	        return StatusResult{Status: "OK"}, nil
 //	    }
 //	}
-type Handler[P, R any] func(*NatsAPI, P) (R, error)
+type Handler[P, R any] func(context.Context, *NatsAPI, P) (R, error)
 
 // PublishHandler is the typed handler signature for publish (fire-and-forget) handlers.
-type PublishHandler[P any] func(*NatsAPI, P) error
+type PublishHandler[P any] func(context.Context, *NatsAPI, P) error
 
 type Route struct {
 	Subject     string

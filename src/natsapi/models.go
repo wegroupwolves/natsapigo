@@ -2,11 +2,11 @@ package natsapi
 
 import (
 	"encoding/json"
-	"github.com/bytedance/sonic"
 	"errors"
-	"fmt"
-	"sync/atomic"
 	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 )
 
 type JsonRPCRequest struct {
@@ -14,13 +14,11 @@ type JsonRPCRequest struct {
 	Timeout *float64        `json:"timeout,omitempty"`
 	Method  string          `json:"method,omitempty"`
 	Params  json.RawMessage `json:"params"`
-	ID      string          `json:"id,omitempty"`
+	ID      uuid.UUID       `json:"id,omitempty"`
 }
 
-var requestCounter atomic.Uint64
-
-func newRequestID() string {
-	return fmt.Sprintf("%016x", requestCounter.Add(1))
+func newRequestID() uuid.UUID {
+	return uuid.New()
 }
 
 func NewJsonRPCRequest(params any) (*JsonRPCRequest, error) {
@@ -37,7 +35,7 @@ func NewJsonRPCRequest(params any) (*JsonRPCRequest, error) {
 
 type JsonRPCReply struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      string          `json:"id"`
+	ID      uuid.UUID       `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *JsonRPCError   `json:"error,omitempty"`
 }
@@ -64,7 +62,7 @@ type ErrorDetail struct {
 	Message string `json:"message"`
 }
 
-func NewResultReply(id string, result json.RawMessage) *JsonRPCReply {
+func NewResultReply(id uuid.UUID, result json.RawMessage) *JsonRPCReply {
 	return &JsonRPCReply{
 		JSONRPC: "2.0",
 		ID:      id,
@@ -72,7 +70,7 @@ func NewResultReply(id string, result json.RawMessage) *JsonRPCReply {
 	}
 }
 
-func NewErrorReply(id string, rpcErr *JsonRPCError) *JsonRPCReply {
+func NewErrorReply(id uuid.UUID, rpcErr *JsonRPCError) *JsonRPCReply {
 	return &JsonRPCReply{
 		JSONRPC: "2.0",
 		ID:      id,

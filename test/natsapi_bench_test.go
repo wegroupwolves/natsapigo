@@ -14,7 +14,7 @@ func BenchmarkRequestReply(b *testing.B) {
 	defer server.Shutdown()
 
 	app := newTestApp(natsURL)
-	app.Request("bench.handler", func(_ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
+	app.Request("bench.handler", func(_ context.Context, _ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
 		return GreetResult{Message: fmt.Sprintf("Hello %s %s", p.FirstName, p.LastName)}, nil
 	})
 	if err := app.Startup(context.Background()); err != nil {
@@ -40,7 +40,7 @@ func BenchmarkRequestReplyParallel(b *testing.B) {
 	defer server.Shutdown()
 
 	app := newTestApp(natsURL)
-	app.Request("bench.parallel", func(_ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
+	app.Request("bench.parallel", func(_ context.Context, _ *natsapi.NatsAPI, p GreetParams) (GreetResult, error) {
 		return GreetResult{Message: fmt.Sprintf("Hello %s %s", p.FirstName, p.LastName)}, nil
 	})
 	if err := app.Startup(context.Background()); err != nil {

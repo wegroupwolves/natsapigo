@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 )
 
@@ -167,6 +168,9 @@ func (a *NatsAPI) Startup(ctx context.Context) error {
 		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, err error) {
 			slog.Error("NATS error", "err", err)
 		}),
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			slog.Warn("NATS disconnected, reconnecting...", "err", err)
+		}),
 		nats.ClosedHandler(func(_ *nats.Conn) {
 			slog.Warn("NATS connection closed")
 			if a.onClosed != nil {
@@ -299,7 +303,7 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 		return
 	}
 
-	if request.ID == "" {
+	if request.ID == uuid.Nil {
 		request.ID = newRequestID()
 	}
 
@@ -319,7 +323,14 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 		return
 	}
 
-	result, err := route.Handler(a, request.Params)
+	ctx := context.Background()
+	if request.Timeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(*request.Timeout*float64(time.Second)))
+		defer cancel()
+	}
+
+	result, err := route.Handler(ctx, a, request.Params)
 	if err != nil {
 		rpcErr := a.handleError(err, &request, subject)
 		reply = NewErrorReply(request.ID, rpcErr)
@@ -336,17 +347,18 @@ func (a *NatsAPI) handlePublish(msg *nats.Msg) {
 		return
 	}
 
-	if request.ID == "" {
+	if request.ID == uuid.Nil {
 		request.ID = newRequestID()
 	}
 
 	subject := msg.Subject
+	ctx := context.Background()
 
 	route, ok := a.publishRoutes[subject]
 	if !ok {
 		r, rok := a.routes[subject]
 		if rok {
-			if _, err := r.Handler(a, request.Params); err != nil {
+			if _, err := r.Handler(ctx, a, request.Params); err != nil {
 				slog.Error("Publish handler error", "err", err, "subject", subject)
 			}
 		} else {
@@ -355,7 +367,7 @@ func (a *NatsAPI) handlePublish(msg *nats.Msg) {
 		return
 	}
 
-	if err := route.Handler(a, request.Params); err != nil {
+	if err := route.Handler(ctx, a, request.Params); err != nil {
 		slog.Error("Publish handler error", "err", err, "subject", subject)
 	}
 }

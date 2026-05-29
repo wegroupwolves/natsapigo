@@ -1,6 +1,7 @@
 package natsapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"reflect"
@@ -181,7 +182,7 @@ func (a *NatsAPI) registerSchemaHandler() {
 	a.routes[key] = Route{
 		Subject:     "schema.retrieve",
 		Description: "Returns the AsyncAPI schema for this service",
-		Handler: func(_ *NatsAPI, _ json.RawMessage) (json.RawMessage, error) {
+		Handler: func(_ context.Context, _ *NatsAPI, _ json.RawMessage) (json.RawMessage, error) {
 			return a.asyncApiSpec, nil
 		},
 	}
