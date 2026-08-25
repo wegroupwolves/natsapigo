@@ -14,6 +14,7 @@ func DefaultExceptionHandler(err error, request *JsonRPCRequest, subject string)
 	if errors.As(err, &rpcErr) {
 		slog.Error("JsonRPCException", "err", err, "subject", subject, "jsonrpc_id", request.ID)
 		return &JsonRPCError{
+			Code:      -32603,
 			Message:   rpcErr.Msg,
 			Timestamp: time.Now(),
 			Errors:    rpcErr.Errors,
@@ -22,6 +23,7 @@ func DefaultExceptionHandler(err error, request *JsonRPCRequest, subject string)
 
 	slog.Error("InternalError", "err", err, "subject", subject, "jsonrpc_id", request.ID)
 	return &JsonRPCError{
+		Code:      -32603,
 		Message:   err.Error(),
 		Timestamp: time.Now(),
 	}

@@ -51,6 +51,7 @@ func (r *JsonRPCReply) Validate() error {
 }
 
 type JsonRPCError struct {
+	Code      int           `json:"code"`
 	Message   string        `json:"message"`
 	Timestamp time.Time     `json:"timestamp"`
 	Errors    []ErrorDetail `json:"errors"`

@@ -76,6 +76,7 @@ type AsyncApiRef struct {
 var reflector = &jsonschema.Reflector{
 	Anonymous:      true,
 	ExpandedStruct: true,
+	DoNotReference: true,
 }
 
 // AsyncApiSpec generates a schema document from all registered routes,

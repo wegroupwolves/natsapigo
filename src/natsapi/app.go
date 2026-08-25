@@ -284,7 +284,8 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 	defer func() {
 		if reply == nil {
 			reply = NewErrorReply(request.ID, &JsonRPCError{
-				Message:   "INTERNAL_ERROR",
+				Code:      -32603,
+			Message:   "INTERNAL_ERROR",
 				Timestamp: time.Now(),
 			})
 		}
@@ -297,6 +298,7 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 	if err := sonic.Unmarshal(msg.Data, &request); err != nil {
 		request.ID = newRequestID()
 		reply = NewErrorReply(request.ID, &JsonRPCError{
+			Code:      -32600,
 			Message:   "INVALID_REQUEST_FORMAT",
 			Timestamp: time.Now(),
 		})
@@ -316,6 +318,7 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 
 	if !ok {
 		reply = NewErrorReply(request.ID, &JsonRPCError{
+			Code:      -32601,
 			Message:   "NO_SUCH_ENDPOINT",
 			Timestamp: time.Now(),
 			Errors: []ErrorDetail{{Message: fmt.Sprintf("No such endpoint available for %s", subject)}},
