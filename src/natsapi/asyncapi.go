@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/bytedance/sonic"
 	"github.com/invopop/jsonschema"
 )
 
@@ -90,8 +89,15 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 			t = t.Elem()
 		}
 		name := t.Name()
-		if name == "" {
+		if name == "" || t.Kind() != reflect.Struct || t.NumField() == 0 {
 			name = "EmptyParams"
+			if _, exists := schemas[name]; !exists {
+				s := &jsonschema.Schema{}
+				s.Type = "object"
+				s.Properties = jsonschema.NewProperties()
+				schemas[name] = s
+			}
+			return name
 		}
 		if _, exists := schemas[name]; !exists {
 			s := reflector.ReflectFromType(t)
@@ -146,7 +152,7 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 
 // AsyncApiSpecJSON returns the AsyncAPI spec as indented JSON.
 func (a *NatsAPI) AsyncApiSpecJSON() ([]byte, error) {
-	return sonic.MarshalIndent(a.AsyncApiSpec(), "", "  ")
+	return json.MarshalIndent(a.AsyncApiSpec(), "", "  ")
 }
 
 // registerSchemaHandler registers a schema.retrieve handler on the root path
@@ -169,13 +175,12 @@ func (a *NatsAPI) registerSchemaHandler() {
 		},
 	}
 	if _, exists := asyncApiSpec.Components.Schemas["EmptyParams"]; !exists {
-		asyncApiSpec.Components.Schemas["EmptyParams"] = &jsonschema.Schema{
-			Type:                 "object",
-			Properties:           jsonschema.NewProperties(),
-			AdditionalProperties: jsonschema.FalseSchema,
-		}
+		s := &jsonschema.Schema{}
+		s.Type = "object"
+		s.Properties = jsonschema.NewProperties()
+		asyncApiSpec.Components.Schemas["EmptyParams"] = s
 	}
-	spec, err := sonic.MarshalIndent(asyncApiSpec, "", "  ")
+	spec, err := json.MarshalIndent(asyncApiSpec, "", "  ")
 	if err != nil {
 		panic("asyncapi: failed to generate schema: " + err.Error())
 	}

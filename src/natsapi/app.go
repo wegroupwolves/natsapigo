@@ -285,7 +285,7 @@ func (a *NatsAPI) handleRequest(msg *nats.Msg) {
 		if reply == nil {
 			reply = NewErrorReply(request.ID, &JsonRPCError{
 				Code:      -32603,
-			Message:   "INTERNAL_ERROR",
+				Message:   "INTERNAL_ERROR",
 				Timestamp: time.Now(),
 			})
 		}
