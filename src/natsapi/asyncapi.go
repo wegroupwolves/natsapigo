@@ -216,6 +216,7 @@ func (a *NatsAPI) registerSchemaHandler() {
 
 // optionalPointers removes pointer fields from required, as a nil pointer is a missing or null value.
 // A pointer stays required when it is tagged validate:"required" or jsonschema:"required".
+// Field names follow encoding/json and must stay in line with how the reflector names properties.
 func optionalPointers(t reflect.Type, s *jsonschema.Schema) {
 	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
 		if t.Kind() != reflect.Ptr && s.Items != nil {
