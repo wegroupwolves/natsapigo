@@ -62,6 +62,12 @@ type PointerParams struct {
 	} `json:"notes"`
 }
 
+func HandleGetGreetingByID() natsapi.Handler[GreetParams, GreetResult] {
+	return func(_ context.Context, _ *natsapi.NatsAPI, _ GreetParams) (GreetResult, error) {
+		return GreetResult{}, nil
+	}
+}
+
 var _ = Context("NatsAPI", func() {
 	var (
 		server  *natsserver.Server
@@ -323,6 +329,19 @@ var _ = Context("NatsAPI", func() {
 			Expect(note.Ref).To(Equal("#/components/schemas/NoteParams"))
 			Expect(spec.Components.Schemas["NoteParams"].Title).To(Equal("NoteParams"))
 			Expect(spec.Components.Schemas["NoteParams"].Required).To(ConsistOf("text"))
+		})
+
+		It("should name operations after the handler function", func() {
+			// given
+			app.Request("greetings.id.retrieve", HandleGetGreetingByID())
+
+			// when
+			spec := app.AsyncApiSpec()
+
+			// then
+			greeting := spec.Channels[app.RootPath+".greetings.id.retrieve"].Request
+			Expect(greeting.Summary).To(Equal("HandleGetGreetingByID"))
+			Expect(greeting.OperationID).To(Equal("greetings_id_retrieve"))
 		})
 	})
 

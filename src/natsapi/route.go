@@ -27,6 +27,7 @@ type PublishHandler[P any] func(context.Context, *NatsAPI, P) error
 
 type Route struct {
 	Subject     string
+	Summary     string
 	Handler     HandlerFunc
 	Description string
 	Tags        []string
@@ -37,6 +38,7 @@ type Route struct {
 
 type PublishRoute struct {
 	Subject     string
+	Summary     string
 	Handler     PublishHandlerFunc
 	Description string
 	Tags        []string
@@ -62,6 +64,7 @@ func (r *SubjectRouter) Request(subject string, handler any, opts ...RouteOption
 	fn, paramType, resultType := adaptHandler(handler)
 	route := Route{
 		Subject:    r.prefixed(subject),
+		Summary:    funcName(handler),
 		Handler:    fn,
 		Tags:       r.Tags,
 		ParamType:  paramType,
@@ -77,6 +80,7 @@ func (r *SubjectRouter) Publish(subject string, handler any, opts ...PublishRout
 	fn, paramType := adaptPublishHandler(handler)
 	route := PublishRoute{
 		Subject:   r.prefixed(subject),
+		Summary:   funcName(handler),
 		Handler:   fn,
 		Tags:      r.Tags,
 		ParamType: paramType,

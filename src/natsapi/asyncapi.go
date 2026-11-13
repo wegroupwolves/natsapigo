@@ -1,10 +1,13 @@
 package natsapi
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -134,7 +137,7 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 	for subject, route := range a.routes {
 		op := &AsyncApiOperation{
 			OperationID: operationID(route.Subject),
-			Summary:     operationID(route.Subject),
+			Summary:     cmp.Or(route.Summary, operationID(route.Subject)),
 			Description: route.Description,
 			Tags:        tagsToAsyncAPI(route.Tags),
 			Replies:     []AsyncApiMessage{},
@@ -154,7 +157,7 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 	for subject, route := range a.publishRoutes {
 		op := &AsyncApiOperation{
 			OperationID: operationID(route.Subject),
-			Summary:     operationID(route.Subject),
+			Summary:     cmp.Or(route.Summary, operationID(route.Subject)),
 			Description: route.Description,
 			Tags:        tagsToAsyncAPI(route.Tags),
 			Replies:     []AsyncApiMessage{},
@@ -263,6 +266,20 @@ func rewriteRefs(s *jsonschema.Schema) {
 	for _, def := range s.Definitions {
 		rewriteRefs(def)
 	}
+}
+
+// closureSuffix matches the parts Go adds to a closure's name, like func1 in handlers.HandleX.func1 or 1 when inlined.
+var closureSuffix = regexp.MustCompile(`^(func)?[0-9]+$`)
+
+// funcName is the handler's Go function name, a closure is named after the function that returns it.
+func funcName(handler any) string {
+	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), ".")
+	for i := len(parts) - 1; i > 0; i-- {
+		if !closureSuffix.MatchString(parts[i]) {
+			return parts[i]
+		}
+	}
+	return ""
 }
 
 // operationID turns a subject into a name without dots, as wg-sdk skips operations whose name contains one.

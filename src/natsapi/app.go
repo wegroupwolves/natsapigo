@@ -92,6 +92,7 @@ func (a *NatsAPI) Request(subject string, handler any, opts ...RouteOption) {
 	fn, paramType, resultType := adaptHandler(handler)
 	route := Route{
 		Subject:    subject,
+		Summary:    funcName(handler),
 		Handler:    fn,
 		ParamType:  paramType,
 		ResultType: resultType,
@@ -110,6 +111,7 @@ func (a *NatsAPI) Publish(subject string, handler any, opts ...PublishRouteOptio
 	fn, paramType := adaptPublishHandler(handler)
 	route := PublishRoute{
 		Subject:   subject,
+		Summary:   funcName(handler),
 		Handler:   fn,
 		ParamType: paramType,
 	}
