@@ -340,7 +340,7 @@ var _ = Context("NatsAPI", func() {
 
 			// then
 			greeting := spec.Channels[app.RootPath+".greetings.id.retrieve"].Request
-			Expect(greeting.Summary).To(Equal("HandleGetGreetingByID"))
+			Expect(greeting.Summary).To(Equal("handle_get_greeting_by_id"))
 			Expect(greeting.OperationID).To(Equal("greetings_id_retrieve"))
 		})
 	})

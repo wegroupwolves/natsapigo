@@ -271,12 +271,19 @@ func rewriteRefs(s *jsonschema.Schema) {
 // closureSuffix matches the parts Go adds to a closure's name, like func1 in handlers.HandleX.func1 or 1 when inlined.
 var closureSuffix = regexp.MustCompile(`^(func)?[0-9]+$`)
 
-// funcName is the handler's Go function name, a closure is named after the function that returns it.
+var (
+	acronymBoundary = regexp.MustCompile(`([A-Z]+)([A-Z][a-z])`)
+	wordBoundary    = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+)
+
+// funcName is the handler's Go function name in snake_case, like the Python functions in wg-sdk:
+// HandleGetActivityByID becomes handle_get_activity_by_id. A closure is named after the function that returns it.
 func funcName(handler any) string {
 	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), ".")
 	for i := len(parts) - 1; i > 0; i-- {
 		if !closureSuffix.MatchString(parts[i]) {
-			return parts[i]
+			name := acronymBoundary.ReplaceAllString(parts[i], "${1}_${2}")
+			return strings.ToLower(wordBoundary.ReplaceAllString(name, "${1}_${2}"))
 		}
 	}
 	return ""
