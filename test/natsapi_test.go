@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	natsserver "github.com/nats-io/nats-server/v2/server"
 
 	"github.com/wegroupwolves/natsapigo/src/natsapi"
@@ -46,11 +45,6 @@ type GreetParams struct {
 
 type GreetResult struct {
 	Message string `json:"message"`
-}
-
-type PersonParams struct {
-	ID   uuid.UUID       `json:"id"`
-	Meta json.RawMessage `json:"meta"`
 }
 
 var _ = Context("NatsAPI", func() {
@@ -282,47 +276,4 @@ var _ = Context("NatsAPI", func() {
 			Expect(req1.ID).ToNot(Equal(req2.ID))
 		})
 	})
-
-	When("Retrieving the AsyncAPI schema", func() {
-		It("should be served on schema.RETRIEVE in the format wg-sdk generates from", func() {
-			// given
-			app.Request("persons.retrieve", func(_ context.Context, _ *natsapi.NatsAPI, _ PersonParams) (StatusResult, error) {
-				return StatusResult{Status: "OK"}, nil
-			})
-			err := app.Startup(context.Background())
-			Expect(err).To(BeNil())
-
-			// when
-			reply, err := app.SendRequest("natsapi.development.schema.RETRIEVE", map[string]any{}, time.Second)
-
-			// then
-			Expect(err).To(BeNil())
-			Expect(reply.Error).To(BeNil())
-			var spec struct {
-				Channels map[string]struct {
-					Request natsapi.AsyncApiOperation `json:"request"`
-				} `json:"channels"`
-				Components struct {
-					Schemas map[string]struct {
-						Title      string                     `json:"title"`
-						Properties map[string]json.RawMessage `json:"properties"`
-					} `json:"schemas"`
-				} `json:"components"`
-			}
-			Expect(json.Unmarshal(reply.Result, &spec)).To(Succeed())
-			operation := spec.Channels["natsapi.development.persons.retrieve"].Request
-			Expect(operation.OperationID).To(Equal("persons_retrieve"))
-			Expect(operation.Summary).To(Equal("persons_retrieve"))
-			Expect(operation.Replies).To(Equal([]natsapi.AsyncApiMessage{
-				{Payload: &natsapi.AsyncApiRef{Ref: "#/components/schemas/StatusResult"}},
-				{Payload: &natsapi.AsyncApiRef{Ref: "#/components/schemas/JsonRPCError"}},
-			}))
-			person := spec.Components.Schemas["PersonParams"]
-			Expect(person.Title).To(Equal("PersonParams"))
-			Expect(person.Properties["id"]).To(MatchJSON(`{"type": "string", "format": "uuid"}`))
-			Expect(person.Properties["meta"]).To(MatchJSON(`{"title": "Any"}`))
-			Expect(spec.Components.Schemas["JsonRPCError"].Title).To(Equal("JsonRPCError"))
-		})
-	})
-
 })

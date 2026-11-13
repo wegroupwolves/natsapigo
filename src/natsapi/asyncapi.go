@@ -171,11 +171,11 @@ func (a *NatsAPI) AsyncApiSpecJSON() ([]byte, error) {
 	return json.MarshalIndent(a.AsyncApiSpec(), "", "  ")
 }
 
-// registerSchemaHandler registers a schema.RETRIEVE handler on the root path
+// registerSchemaHandler registers a schema.retrieve handler on the root path
 // that returns the AsyncAPI spec for this app. The spec is computed once at
 // startup so requests are just a map lookup + copy.
 func (a *NatsAPI) registerSchemaHandler() {
-	subject := "schema.RETRIEVE"
+	subject := "schema.retrieve"
 	key := a.RootPath + "." + subject
 	if _, exists := a.routes[key]; exists {
 		return
