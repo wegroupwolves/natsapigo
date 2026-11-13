@@ -171,11 +171,11 @@ func (a *NatsAPI) AsyncApiSpecJSON() ([]byte, error) {
 	return json.MarshalIndent(a.AsyncApiSpec(), "", "  ")
 }
 
-// registerSchemaHandler registers a schema.retrieve handler on the root path
+// registerSchemaHandler registers a schema.RETRIEVE handler on the root path
 // that returns the AsyncAPI spec for this app. The spec is computed once at
 // startup so requests are just a map lookup + copy.
 func (a *NatsAPI) registerSchemaHandler() {
-	subject := "schema.retrieve"
+	subject := "schema.RETRIEVE"
 	key := a.RootPath + "." + subject
 	if _, exists := a.routes[key]; exists {
 		return
@@ -203,16 +203,13 @@ func (a *NatsAPI) registerSchemaHandler() {
 		panic("asyncapi: failed to generate schema: " + err.Error())
 	}
 	a.asyncApiSpec = spec
-	route := Route{
+	a.routes[key] = Route{
 		Subject:     subject,
 		Description: "Returns the AsyncAPI schema for this service",
 		Handler: func(_ context.Context, _ *NatsAPI, _ json.RawMessage) (json.RawMessage, error) {
 			return a.asyncApiSpec, nil
 		},
 	}
-	a.routes[key] = route
-	// The Python natsapi serves the schema on schema.RETRIEVE, which is what wg-sdk requests.
-	a.routes[a.RootPath+".schema.RETRIEVE"] = route
 }
 
 // operationID turns a subject into a name without dots, as wg-sdk skips operations whose name contains one.
