@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/invopop/jsonschema"
 )
 
@@ -76,6 +78,15 @@ var reflector = &jsonschema.Reflector{
 	Anonymous:      true,
 	ExpandedStruct: true,
 	DoNotReference: true,
+	Mapper: func(t reflect.Type) *jsonschema.Schema {
+		switch t {
+		case reflect.TypeOf(uuid.UUID{}):
+			return &jsonschema.Schema{Type: "string", Format: "uuid"}
+		case reflect.TypeOf(json.RawMessage{}):
+			return &jsonschema.Schema{Title: "Any"}
+		}
+		return nil
+	},
 }
 
 // AsyncApiSpec generates a schema document from all registered routes,
@@ -93,6 +104,7 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 			name = "EmptyParams"
 			if _, exists := schemas[name]; !exists {
 				s := &jsonschema.Schema{}
+				s.Title = name
 				s.Type = "object"
 				s.Properties = jsonschema.NewProperties()
 				schemas[name] = s
@@ -102,15 +114,18 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 		if _, exists := schemas[name]; !exists {
 			s := reflector.ReflectFromType(t)
 			s.Version = ""
+			s.Title = name
 			schemas[name] = s
 		}
 		return name
 	}
 
+	errorName := addSchema(reflect.TypeOf(JsonRPCError{}))
+
 	for subject, route := range a.routes {
 		op := &AsyncApiOperation{
-			OperationID: subject,
-			Summary:     route.Description,
+			OperationID: operationID(route.Subject),
+			Summary:     operationID(route.Subject),
 			Description: route.Description,
 			Tags:        tagsToAsyncAPI(route.Tags),
 			Replies:     []AsyncApiMessage{},
@@ -123,13 +138,14 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 			name := addSchema(route.ResultType)
 			op.Replies = []AsyncApiMessage{{Payload: &AsyncApiRef{Ref: refPrefix + name}}}
 		}
+		op.Replies = append(op.Replies, AsyncApiMessage{Payload: &AsyncApiRef{Ref: refPrefix + errorName}})
 		channels[subject] = AsyncApiChannel{Request: op}
 	}
 
 	for subject, route := range a.publishRoutes {
 		op := &AsyncApiOperation{
-			OperationID: subject,
-			Summary:     route.Description,
+			OperationID: operationID(route.Subject),
+			Summary:     operationID(route.Subject),
 			Description: route.Description,
 			Tags:        tagsToAsyncAPI(route.Tags),
 			Replies:     []AsyncApiMessage{},
@@ -159,15 +175,16 @@ func (a *NatsAPI) AsyncApiSpecJSON() ([]byte, error) {
 // that returns the AsyncAPI spec for this app. The spec is computed once at
 // startup so requests are just a map lookup + copy.
 func (a *NatsAPI) registerSchemaHandler() {
-	key := a.RootPath + ".schema.retrieve"
+	subject := "schema.retrieve"
+	key := a.RootPath + "." + subject
 	if _, exists := a.routes[key]; exists {
 		return
 	}
 	asyncApiSpec := a.AsyncApiSpec()
 	asyncApiSpec.Channels[key] = AsyncApiChannel{
 		Request: &AsyncApiOperation{
-			OperationID: key,
-			Summary:     "Returns the AsyncAPI schema for this service",
+			OperationID: operationID(subject),
+			Summary:     operationID(subject),
 			Description: "Returns the AsyncAPI schema for this service",
 			Tags:        []AsyncApiTag{},
 			Message:     AsyncApiMessage{Payload: &AsyncApiRef{Ref: refPrefix + "EmptyParams"}},
@@ -176,6 +193,7 @@ func (a *NatsAPI) registerSchemaHandler() {
 	}
 	if _, exists := asyncApiSpec.Components.Schemas["EmptyParams"]; !exists {
 		s := &jsonschema.Schema{}
+		s.Title = "EmptyParams"
 		s.Type = "object"
 		s.Properties = jsonschema.NewProperties()
 		asyncApiSpec.Components.Schemas["EmptyParams"] = s
@@ -186,12 +204,17 @@ func (a *NatsAPI) registerSchemaHandler() {
 	}
 	a.asyncApiSpec = spec
 	a.routes[key] = Route{
-		Subject:     "schema.retrieve",
+		Subject:     subject,
 		Description: "Returns the AsyncAPI schema for this service",
 		Handler: func(_ context.Context, _ *NatsAPI, _ json.RawMessage) (json.RawMessage, error) {
 			return a.asyncApiSpec, nil
 		},
 	}
+}
+
+// operationID turns a subject into a name without dots, as wg-sdk skips operations whose name contains one.
+func operationID(subject string) string {
+	return strings.ReplaceAll(subject, ".", "_")
 }
 
 func newAsyncAPIDocServer(a *NatsAPI) *http.Server {
