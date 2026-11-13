@@ -47,6 +47,20 @@ type GreetResult struct {
 	Message string `json:"message"`
 }
 
+type NoteParams struct {
+	Text string `json:"text"`
+}
+
+type PointerParams struct {
+	ID       string      `json:"id"`
+	Note     *NoteParams `json:"note"`
+	Required *NoteParams `json:"required" validate:"required"`
+	Notes    []struct {
+		Author *string `json:"author"`
+		Body   string  `json:"body"`
+	} `json:"notes"`
+}
+
 var _ = Context("NatsAPI", func() {
 	var (
 		server  *natsserver.Server
@@ -276,4 +290,23 @@ var _ = Context("NatsAPI", func() {
 			Expect(req1.ID).ToNot(Equal(req2.ID))
 		})
 	})
+
+	When("Generating the AsyncAPI spec", func() {
+		It("should not require pointer fields unless they are tagged required", func() {
+			// given
+			app.Request("pointers.retrieve", func(_ context.Context, _ *natsapi.NatsAPI, _ PointerParams) (StatusResult, error) {
+				return StatusResult{Status: "OK"}, nil
+			})
+
+			// when
+			spec := app.AsyncApiSpec()
+
+			// then
+			schema := spec.Components.Schemas["PointerParams"]
+			Expect(schema.Required).To(ConsistOf("id", "required", "notes"))
+			notes, _ := schema.Properties.Get("notes")
+			Expect(notes.Items.Required).To(ConsistOf("body"))
+		})
+	})
+
 })

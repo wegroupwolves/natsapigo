@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -115,6 +116,7 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 			s := reflector.ReflectFromType(t)
 			s.Version = ""
 			s.Title = name
+			optionalPointers(t, s)
 			schemas[name] = s
 		}
 		return name
@@ -209,6 +211,42 @@ func (a *NatsAPI) registerSchemaHandler() {
 		Handler: func(_ context.Context, _ *NatsAPI, _ json.RawMessage) (json.RawMessage, error) {
 			return a.asyncApiSpec, nil
 		},
+	}
+}
+
+// optionalPointers removes pointer fields from required, as a nil pointer is a missing or null value.
+// A pointer stays required when it is tagged validate:"required" or jsonschema:"required".
+func optionalPointers(t reflect.Type, s *jsonschema.Schema) {
+	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		if t.Kind() != reflect.Ptr && s.Items != nil {
+			s = s.Items
+		}
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct || s.Properties == nil {
+		return
+	}
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		name := strings.Split(f.Tag.Get("json"), ",")[0]
+		if f.Anonymous && name == "" {
+			optionalPointers(f.Type, s)
+			continue
+		}
+		if name == "-" || !f.IsExported() {
+			continue
+		}
+		if name == "" {
+			name = f.Name
+		}
+		explicit := slices.Contains(strings.Split(f.Tag.Get("validate"), ","), "required") ||
+			slices.Contains(strings.Split(f.Tag.Get("jsonschema"), ","), "required")
+		if f.Type.Kind() == reflect.Ptr && !explicit {
+			s.Required = slices.DeleteFunc(s.Required, func(r string) bool { return r == name })
+		}
+		if prop, ok := s.Properties.Get(name); ok {
+			optionalPointers(f.Type, prop)
+		}
 	}
 }
 
