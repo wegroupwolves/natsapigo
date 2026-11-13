@@ -78,7 +78,6 @@ type AsyncApiRef struct {
 var reflector = &jsonschema.Reflector{
 	Anonymous:      true,
 	ExpandedStruct: true,
-	DoNotReference: true,
 	Mapper: func(t reflect.Type) *jsonschema.Schema {
 		switch t {
 		case reflect.TypeOf(uuid.UUID{}):
@@ -116,7 +115,15 @@ func (a *NatsAPI) AsyncApiSpec() AsyncApiSpec {
 			s := reflector.ReflectFromType(t)
 			s.Version = ""
 			s.Title = name
-			optionalPointers(t, s)
+			optionalPointers(t, s, s.Definitions)
+			rewriteRefs(s)
+			for defName, def := range s.Definitions {
+				if _, exists := schemas[defName]; !exists {
+					def.Title = defName
+					schemas[defName] = def
+				}
+			}
+			s.Definitions = nil
 			schemas[name] = s
 		}
 		return name
@@ -182,25 +189,8 @@ func (a *NatsAPI) registerSchemaHandler() {
 	if _, exists := a.routes[key]; exists {
 		return
 	}
-	asyncApiSpec := a.AsyncApiSpec()
-	asyncApiSpec.Channels[key] = AsyncApiChannel{
-		Request: &AsyncApiOperation{
-			OperationID: operationID(subject),
-			Summary:     operationID(subject),
-			Description: "Returns the AsyncAPI schema for this service",
-			Tags:        []AsyncApiTag{},
-			Message:     AsyncApiMessage{Payload: &AsyncApiRef{Ref: refPrefix + "EmptyParams"}},
-			Replies:     []AsyncApiMessage{},
-		},
-	}
-	if _, exists := asyncApiSpec.Components.Schemas["EmptyParams"]; !exists {
-		s := &jsonschema.Schema{}
-		s.Title = "EmptyParams"
-		s.Type = "object"
-		s.Properties = jsonschema.NewProperties()
-		asyncApiSpec.Components.Schemas["EmptyParams"] = s
-	}
-	spec, err := json.MarshalIndent(asyncApiSpec, "", "  ")
+	// like the Python natsapi (include_schema=False), the schema route itself is not part of the spec
+	spec, err := a.AsyncApiSpecJSON()
 	if err != nil {
 		panic("asyncapi: failed to generate schema: " + err.Error())
 	}
@@ -217,12 +207,15 @@ func (a *NatsAPI) registerSchemaHandler() {
 // optionalPointers removes pointer fields from required, as a nil pointer is a missing or null value.
 // A pointer stays required when it is tagged validate:"required" or jsonschema:"required".
 // Field names follow encoding/json and must stay in line with how the reflector names properties.
-func optionalPointers(t reflect.Type, s *jsonschema.Schema) {
+func optionalPointers(t reflect.Type, s *jsonschema.Schema, defs jsonschema.Definitions) {
 	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
 		if t.Kind() != reflect.Ptr && s.Items != nil {
 			s = s.Items
 		}
 		t = t.Elem()
+	}
+	if def, ok := defs[strings.TrimPrefix(s.Ref, "#/$defs/")]; ok {
+		s = def
 	}
 	if t.Kind() != reflect.Struct || s.Properties == nil {
 		return
@@ -231,7 +224,7 @@ func optionalPointers(t reflect.Type, s *jsonschema.Schema) {
 		f := t.Field(i)
 		name := strings.Split(f.Tag.Get("json"), ",")[0]
 		if f.Anonymous && name == "" {
-			optionalPointers(f.Type, s)
+			optionalPointers(f.Type, s, defs)
 			continue
 		}
 		if name == "-" || !f.IsExported() {
@@ -246,8 +239,29 @@ func optionalPointers(t reflect.Type, s *jsonschema.Schema) {
 			s.Required = slices.DeleteFunc(s.Required, func(r string) bool { return r == name })
 		}
 		if prop, ok := s.Properties.Get(name); ok {
-			optionalPointers(f.Type, prop)
+			optionalPointers(f.Type, prop, defs)
 		}
+	}
+}
+
+// rewriteRefs points the reflector's $defs refs to the components, where the definitions are moved to.
+func rewriteRefs(s *jsonschema.Schema) {
+	if s == nil {
+		return
+	}
+	s.Ref = strings.Replace(s.Ref, "#/$defs/", refPrefix, 1)
+	if s.Properties != nil {
+		for p := s.Properties.Oldest(); p != nil; p = p.Next() {
+			rewriteRefs(p.Value)
+		}
+	}
+	rewriteRefs(s.Items)
+	rewriteRefs(s.AdditionalProperties)
+	for _, x := range slices.Concat(s.AllOf, s.AnyOf, s.OneOf) {
+		rewriteRefs(x)
+	}
+	for _, def := range s.Definitions {
+		rewriteRefs(def)
 	}
 }
 

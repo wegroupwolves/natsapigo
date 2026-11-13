@@ -48,7 +48,8 @@ type GreetResult struct {
 }
 
 type NoteParams struct {
-	Text string `json:"text"`
+	Text   string  `json:"text"`
+	Author *string `json:"author"`
 }
 
 type PointerParams struct {
@@ -306,6 +307,22 @@ var _ = Context("NatsAPI", func() {
 			Expect(schema.Required).To(ConsistOf("id", "required", "notes"))
 			notes, _ := schema.Properties.Get("notes")
 			Expect(notes.Items.Required).To(ConsistOf("body"))
+		})
+
+		It("should move nested structs into the components", func() {
+			// given
+			app.Request("pointers.retrieve", func(_ context.Context, _ *natsapi.NatsAPI, _ PointerParams) (StatusResult, error) {
+				return StatusResult{Status: "OK"}, nil
+			})
+
+			// when
+			spec := app.AsyncApiSpec()
+
+			// then
+			note, _ := spec.Components.Schemas["PointerParams"].Properties.Get("note")
+			Expect(note.Ref).To(Equal("#/components/schemas/NoteParams"))
+			Expect(spec.Components.Schemas["NoteParams"].Title).To(Equal("NoteParams"))
+			Expect(spec.Components.Schemas["NoteParams"].Required).To(ConsistOf("text"))
 		})
 	})
 
